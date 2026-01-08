@@ -1,0 +1,30 @@
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.env
+
+# --- Emacs backups ---
+*~
+
+# --- GPSmax runtime data ---
+GPS/
+*/_raw/
+*/_work/
+*/_db/
+
+# --- SQLite ---
+*.sqlite
+*.sqlite3
+
+# --- Local config (machine-specific) ---
+config/config.toml
+~/.config/gpsmax
+
+# --- Logs / temp ---
+*.log
+.tmp/

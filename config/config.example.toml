@@ -1,0 +1,27 @@
+# GPSmax configuration (example)
+#
+# Copy this file to ONE of:
+#   - ~/.config/gpsmax/config.toml            (recommended; per-machine, not in git)
+#   - <repo_root>/config/config.toml          (repo-local; do not commit personal paths)
+#
+# You can also override individual values via environment variables:
+#   GPSMAX_RUNTIME_ROOT
+#   GPSMAX_RAW_ROOT
+#   GPSMAX_WORK_ROOT
+#   GPSMAX_DB_ROOT
+#   GPSMAX_SQLITE_PATH
+#
+# CLI flags remain the highest priority (e.g., --raw-root, --db).
+
+[paths]
+# Simplest: set runtime_root and let the standard subfolders be derived.
+runtime_root = "~/GPS"
+
+# Optional explicit overrides (uncomment to set directly)
+# raw_root  = "~/GPS/_raw"
+# work_root = "~/GPS/_work"
+# db_root   = "~/GPS/_db"
+
+[db]
+# Optional override; otherwise defaults to "<db_root>/gps.sqlite"
+# sqlite_path = "~/GPS/_db/gps.sqlite"
