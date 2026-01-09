@@ -42,8 +42,29 @@ A shell script using:
 - Manifest generation with SHA-256 checksums
 - Graceful handling of absent hardware
 - Centralized configuration system
-- SQLite Phase A schema and manifest importer
+- SQLite Phase 1 schema and manifest importer
 - Clean Git separation between code and runtime data
+
+---
+
+## Phase 1+ — Internal Code Consolidation (Planned / In Progress)
+
+### Goal
+Reduce duplication and improve maintainability by extracting shared helper logic into reusable modules.
+
+### Planned Work
+- Introduce `gpsmax/utilities.py` to house shared helper functions:
+  - logging and timestamps
+  - hashing utilities
+  - filesystem/path helpers
+  - subprocess wrappers
+- Refactor existing scripts (`garmin_ingest.py`, `gps_import_manifest.py`) to import from `gpsmax.utilities`
+- Maintain scripts as standalone entry points while sharing a common internal library
+
+### Design Principles
+- `utilities.py` contains **pure helper functions only**
+- No workflow-specific or device-specific logic in utilities
+- Future refactors may split utilities into submodules if needed, without breaking imports
 
 ---
 
@@ -135,13 +156,38 @@ GPSmax prepares structured inputs; final cartography remains in GIS tools.
 
 ---
 
+### 4.3 — Unified Command Interface (Future Enhancement)
+
+- Introduce `gpsmax` top-level command with subcommands:
+  - `gpsmax ingest`
+  - `gpsmax normalize`
+  - `gpsmax plot`
+  - `gpsmax prune`
+  - `gpsmax export`
+- Optional interactive shell mode (`gpsmax shell`) for session-based workflows
+- Subcommand-based CLI implemented first; interactive shell added later
+
+---
+
+## Phase E — Advanced and Optional Enhancements (Longer-Term)
+
+- Multi-device ingestion in a single session (multiple Garmin receivers)
+- FIT file ingestion support (Forerunner and fitness devices)
+- Segment classification within tracks (drive vs walk vs stop)
+- Enhanced sensor analysis in SQLite
+- Integration with experimental or custom GPS loggers
+
+---
+
 ## Near-Term Priority Order
 
-1. Complete normalization workflow
-2. Implement quick-view plotting tool
-3. Implement pruning with provenance
-4. Add thumbnail generation + indexing
-5. Implement export + photobook map bundles
+1. Consolidate shared helper functions into `gpsmax.utilities`
+2. Complete normalization workflow
+3. Implement quick-view plotting tool
+4. Implement pruning with provenance
+5. Add thumbnail generation + indexing
+6. Implement export + photobook map bundles
+7. Introduce unified `gpsmax` command interface
 
 ---
 
