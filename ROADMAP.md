@@ -34,7 +34,7 @@ A shell script using:
 
 ---
 
-## Phase A — Python Ingestion + Provenance (Complete)
+## Phase 1 — Python Ingestion + Provenance (Complete)
 
 ### Deliverables
 - `garmin_ingest.py`: robust ingestion with device auto-detection
@@ -47,7 +47,7 @@ A shell script using:
 
 ---
 
-## Phase B — Normalization (In Progress)
+## Phase 2 — Normalization (In Progress)
 
 ### Goals
 - Produce canonical, readable GPX files from `_raw`
@@ -63,9 +63,9 @@ A shell script using:
 
 ---
 
-## Phase C — Visualization + Pruning (Planned)
+## Phase 3 — Visualization + Pruning (Planned)
 
-### C1 — Quick View / Diagnostics
+### 3.1 — Quick View / Diagnostics
 Tool: `gps_plot.py`
 
 - Lightweight XY geometry plotting
@@ -74,7 +74,7 @@ Tool: `gps_plot.py`
 - PNG/SVG export for diagnostics
 - Read-only, no data mutation
 
-### C2 — Pruning
+### 3.2 — Pruning
 Tool: `gps_prune.py`
 
 - Non-destructive pruning of normalized tracks
@@ -85,7 +85,7 @@ Tool: `gps_prune.py`
 
 ---
 
-## Phase C+ — Track Thumbnails (Recommended)
+## Phase 3+ — Track Thumbnails (Recommended)
 
 ### Strategy
 Generate thumbnails as derived artifacts on disk and index them in SQLite.
@@ -110,9 +110,9 @@ Rationale:
 
 ---
 
-## Phase D — Export & Publishing (Future)
+## Phase 4 — Export & Publishing (Future)
 
-### D1 — Export Tool
+### 4.1 — Export Tool
 Tool: `gps_export.py`
 
 - GPX, GeoJSON, KML/KMZ exports
@@ -120,7 +120,7 @@ Tool: `gps_export.py`
 - Activity-specific layers
 - QGIS/QMapShack-friendly bundles
 
-### D2 — Photobook & Trip Map Production
+### 4.2 — Photobook & Trip Map Production
 
 Primary downstream use case:
 - Create high-quality maps for photobooks and trip reports
