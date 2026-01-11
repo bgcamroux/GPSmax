@@ -47,23 +47,27 @@ A shell script using:
 
 ---
 
-## Phase 1+ — Internal Code Consolidation (Planned / In Progress)
+## Phase 1+ — Internal Code Consolidation (Complete)
 
 ### Goal
 Reduce duplication and improve maintainability by extracting shared helper logic into reusable modules.
 
-### Planned Work
-- Introduce `gpsmax/utilities.py` to house shared helper functions:
-  - logging and timestamps
-  - hashing utilities
-  - filesystem/path helpers
-  - subprocess wrappers
-- Refactor existing scripts (`garmin_ingest.py`, `gps_import_manifest.py`) to import from `gpsmax.utilities`
+### Completed Work
+- Introduce `gpsmax/util/` and `gpsmax/devices/` to house shared helper functions:
+  - logging and timestamps --> gpsmax/util/logging.py
+  - hashing utilities --> gpsmax/util/hashing.py
+  - filesystem/path helpers --> gpsmax/util/paths.py
+  - subprocess wrappers --> gpsmax/util/subprocess.py
+  - mtp handling wrappers --> gpsmax/devices/mtp.py
+  - garmin-specific wrappers --> gpsmax/devices/garmin.py
+- Refactor existing scripts (`garmin_ingest.py`, `gps_import_manifest.py`) to import from
+  `gpsmax.util` and `gpsmax.devices`
 - Maintain scripts as standalone entry points while sharing a common internal library
 
 ### Design Principles
-- `utilities.py` contains **pure helper functions only**
+- `gpsmap/util/` contains **pure helper functions only**
 - No workflow-specific or device-specific logic in utilities
+- `gpsmap/devices/` contains **generic and device-specific** helper functions
 - Future refactors may split utilities into submodules if needed, without breaking imports
 
 ---
