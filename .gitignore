@@ -2,11 +2,14 @@
 .venv/
 venv/
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
 .DS_Store
 .env
+*.py[cod]
+
+# --- Python packaging artifacts ---
+*.egg-info/
+dist/
+build/
 
 # --- Emacs backups ---
 *~

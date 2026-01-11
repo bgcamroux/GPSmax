@@ -35,11 +35,14 @@ import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Iterable, Optional, Tuple
+from gpsmax.util.logging import log
+from gpsmax.util.hashing import sha256_file
+#from gpsmax.util.paths import ensure_dir, slugify # Only if you actually use these
+from gpsmax.util.subprocess import run_cmd as run       # Only if used outside mtp module
+from gpsmax.devices.mtp import discover_mtp_mount, MtpMountInfo, NoMtpDeviceError
+from gpsmax.devices.garmin import derive_device_id
 import xml.etree.ElementTree as ET
 
-
-class NoMtpDeviceError(RuntimeError):
-    """Raised when no MTP device is mounted/visible via gio."""
 
 # ----------------------------
 # GPSmax Configuration
@@ -52,91 +55,15 @@ if str(REPO_ROOT) not in sys.path:
 
 try:
     from gpsmax.config import load_config
-except Exception:
+except Exception as e:
     load_config = None # type: ignore
     # Optionally: Keep this quiet unless you want visibility
     print(f"Warning: GPSmax config unavailable ({e}); using defaults.", file=sys.stderr)
 
-# ----------------------------
-# Logging
-# ----------------------------
-
-def log(msg: str) -> None:
-    ts = dt.datetime.now().astimezone().isoformat(timespec="seconds")
-    print(f"{ts}  {msg}", file=sys.stderr)
-
-
-# ----------------------------
-# Utilities
-# ----------------------------
-
-def run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-
-def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        while True:
-            b = f.read(chunk_size)
-            if not b:
-                break
-            h.update(b)
-    return h.hexdigest()
-
-
-def slugify_device_model(s: str) -> str:
-    """Convert human model strings to a path-safe slug."""
-    s = s.strip()
-    s = re.sub(r"^Garmin[_\s]+", "", s, flags=re.IGNORECASE)
-    s = s.replace("_", " ")
-    s = re.sub(r"[^A-Za-z0-9 ]+", "", s)
-    s = re.sub(r"\s+", "", s)
-    return s.lower() or "garmin"
-
-
-def parse_garmin_device_xml_description(xml_path: Path) -> Optional[str]:
-    """Best-effort parse of GarminDevice.xml for a model description."""
-    try:
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
-        desc = root.findtext(".//Description")
-        if desc:
-            return desc.strip()
-    except Exception:
-        return None
-    return None
-
-
+    
 # ----------------------------
 # GVFS/MTP discovery
 # ----------------------------
-
-@dataclass(frozen=True)
-class MtpMountInfo:
-    mtp_uri: str            # e.g. mtp://Garmin_GPSMAP_67_0000ced81822/
-    host: str               # e.g. Garmin_GPSMAP_67_0000ced81822
-    gvfs_mount: Path        # e.g. /run/user/1000/gvfs/mtp:host=Garmin_GPSMAP_67_0000ced81822
-
-
-def discover_mtp_mount() -> MtpMountInfo:
-    """Parse `gio mount -li` to find the first MTP default_location/activation_root."""
-    cp = run(["gio", "mount", "-li"], check=True)
-    text = cp.stdout
-
-    m = re.search(r"^\s*activation_root=(mtp://[^/]+/)\s*$", text, flags=re.MULTILINE)
-    if not m:
-        m = re.search(r"^\s*default_location=(mtp://[^/]+/)\s*$", text, flags=re.MULTILINE)
-    if not m:
-        raise NoMtpDeviceError("No MTP device found. Connect and mount your Garmin, then try again.")
-    
-    mtp_uri = m.group(1)
-    host = re.sub(r"^mtp://", "", mtp_uri).rstrip("/")
-
-    uid = os.getuid()
-    gvfs_mount = Path(f"/run/user/{uid}/gvfs/mtp:host={host}")
-    return MtpMountInfo(mtp_uri=mtp_uri, host=host, gvfs_mount=gvfs_mount)
-
 
 def ensure_mounted(mtp_uri: str) -> None:
     """Attempt to mount the MTP URI (idempotent in typical cases)."""
@@ -196,34 +123,6 @@ def iter_gpx_files(gvfs_root: Path) -> Iterable[Tuple[Path, str]]:
                 ap = Path(root) / fn
                 rel = ap.relative_to(gvfs_root).as_posix()
                 yield ap, rel
-
-
-def derive_device_id(mtp: MtpMountInfo) -> str:
-    """Derive a friendly, path-safe device_id."""
-    host = mtp.host
-
-    if host.startswith("Garmin_") and "_" in host:
-        model_part = host
-        if re.search(r"_[0-9a-fA-F]{6,}$", host):
-            model_part = host.rsplit("_", 1)[0]
-        model_part = model_part.replace("Garmin_", "", 1)
-        model_slug = slugify_device_model(model_part)
-        if model_slug:
-            return model_slug
-
-    candidates = [
-        mtp.gvfs_mount / "Internal Storage" / "GARMIN" / "GarminDevice.xml",
-        mtp.gvfs_mount / "GARMIN" / "GarminDevice.xml",
-        mtp.gvfs_mount / "Internal Storage" / "Garmin" / "GarminDevice.xml",
-    ]
-    for c in candidates:
-        if c.is_file():
-            desc = parse_garmin_device_xml_description(c)
-            if desc:
-                return slugify_device_model(desc)
-
-    h = hashlib.sha256(host.encode("utf-8")).hexdigest()[:8]
-    return f"device_{h}"
 
 
 # ----------------------------
