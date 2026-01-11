@@ -169,7 +169,7 @@ GPSmax prepares structured inputs; final cartography remains in GIS tools.
 
 ---
 
-## Phase E — Advanced and Optional Enhancements (Longer-Term)
+## Phase 5 — Advanced and Optional Enhancements (Longer-Term)
 
 - Multi-device ingestion in a single session (multiple Garmin receivers)
 - FIT file ingestion support (Forerunner and fitness devices)
