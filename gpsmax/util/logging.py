@@ -5,7 +5,7 @@ import datetime
 
 def utc_now_iso() -> str:
     """Return current UTC timestamp as ISO-8601 string."""
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
 
 def log(msg: str) -> None:
     """Print a timestamped log line (local time with timezone)."""

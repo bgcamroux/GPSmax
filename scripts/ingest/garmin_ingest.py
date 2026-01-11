@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Iterable, Optional, Tuple
 from gpsmax.util.logging import log
 from gpsmax.util.hashing import sha256_file
-#from gpsmax.util.paths import ensure_dir, slugify # Only if you actually use these
+from gpsmax.util.paths import ensure_dir, slugify # Only if you actually use these
 from gpsmax.util.subprocess import run_cmd as run       # Only if used outside mtp module
 from gpsmax.devices.mtp import discover_mtp_mount, MtpMountInfo, NoMtpDeviceError
 from gpsmax.devices.garmin import derive_device_id

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from shutil import which as _which
 
 _slug_bad = re.compile(r"[^a-z0-9]+")
 
@@ -16,3 +17,5 @@ def slugify(text: str, *, default: str = "untitled") -> str:
     s = _slug_bad.sub("_", s).strip("_")
     return s or default
 
+def which(cmd: str) -> Optional[str]:
+    return _which(cmd)

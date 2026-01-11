@@ -27,24 +27,29 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import hashlib
+#import hashlib
 import json
-import os
-import re
+#import os
+#import re
 import subprocess
 import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Optional, Tuple
-import xml.etree.ElementTree as ET
+from typing import Optional
+
+from gpsmax.util.logging import log, utc_now_iso
+from gpsmax.util.hashing import sha256_file
+#from gpsmax.util.subprocess import run_cmd as run
+from gpsmax.util.paths import ensure_dir, slugify, which
+from gpsmax.formats.gpx import first_time_utc_from_gpx, read_gpx, normalize_gpx
+
 
 # ----------------------------
 # GPSmax configuration import
 # ----------------------------
-REPO_ROOT = Path(__file__).resolve().parents[2]  # <repo>/scripts/normalize/gps_normalize.py
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
+#REPO_ROOT = Path(__file__).resolve().parents[2]  # <repo>/scripts/normalize/gps_normalize.py
+#if str(REPO_ROOT) not in sys.path:
+#    sys.path.insert(0, str(REPO_ROOT))
 try:
     from gpsmax.config import load_config
 except Exception:
@@ -63,151 +68,6 @@ class NormalizeError(RuntimeError):
 
 class FzfNotFoundError(NormalizeError):
     pass
-
-
-# ----------------------------
-# Small helpers
-# ----------------------------
-def log(msg: str) -> None:
-    ts = dt.datetime.now().astimezone().isoformat(timespec="seconds")
-    print(f"{ts}  {msg}")
-
-
-def utc_now_iso() -> str:
-    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
-
-
-def sha256_file(path: Path, chunk: int = 1024 * 1024) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        while True:
-            b = f.read(chunk)
-            if not b:
-                break
-            h.update(b)
-    return h.hexdigest()
-
-
-def slugify(s: str) -> str:
-    s = s.strip().lower()
-    s = re.sub(r"[^\w\s-]+", "", s)
-    s = re.sub(r"[\s_-]+", "_", s).strip("_")
-    return s or "track"
-
-
-def ensure_dir(p: Path) -> None:
-    p.mkdir(parents=True, exist_ok=True)
-
-
-def which(cmd: str) -> Optional[str]:
-    from shutil import which as _which
-    return _which(cmd)
-
-
-# ----------------------------
-# GPX parsing / writing
-# ----------------------------
-def _gpx_ns(root: ET.Element) -> str:
-    """Return '{namespace}' prefix for default GPX namespace, or '' if none."""
-    if root.tag.startswith("{") and "}" in root.tag:
-        return root.tag.split("}", 1)[0] + "}"
-    return ""
-
-
-def first_time_utc_from_gpx(root: ET.Element) -> Optional[dt.datetime]:
-    """Try to extract a representative UTC timestamp from GPX."""
-    ns = _gpx_ns(root)
-
-    # Prefer <metadata><time>
-    md_time = root.find(f"{ns}metadata/{ns}time")
-    if md_time is not None and (md_time.text or "").strip():
-        t = (md_time.text or "").strip()
-        try:
-            return dt.datetime.fromisoformat(t.replace("Z", "+00:00")).astimezone(dt.timezone.utc)
-        except Exception:
-            pass
-
-    # Else first trkpt time
-    trkpt_time = root.find(f".//{ns}trkpt/{ns}time")
-    if trkpt_time is not None and (trkpt_time.text or "").strip():
-        t = (trkpt_time.text or "").strip()
-        try:
-            return dt.datetime.fromisoformat(t.replace("Z", "+00:00")).astimezone(dt.timezone.utc)
-        except Exception:
-            pass
-
-    return None
-
-
-def _indent(elem: ET.Element, level: int = 0) -> None:
-    """
-    In-place pretty-printer for ElementTree that avoids the "double blank line" issue.
-    """
-    i = "\n" + ("  " * level)
-    if len(elem):
-        if not (elem.text or "").strip():
-            elem.text = i + "  "
-        for child in elem:
-            _indent(child, level + 1)
-        if not (elem.tail or "").strip():
-            elem.tail = i
-    else:
-        if level and not (elem.tail or "").strip():
-            elem.tail = i
-
-
-def normalize_gpx(src: Path, title: str) -> Tuple[bytes, dict]:
-    """
-    Normalize a GPX file (formatting + consistent naming).
-
-    Returns:
-      - normalized GPX bytes (utf-8, with xml declaration)
-      - stats dict (for sidecar/manifest)
-    """
-    raw = src.read_bytes()
-    try:
-        root = ET.fromstring(raw)
-    except Exception as e:
-        raise NormalizeError(f"Failed to parse GPX: {src} ({e})") from e
-
-    ns = _gpx_ns(root)
-
-    # Ensure <metadata> exists
-    metadata = root.find(f"{ns}metadata")
-    if metadata is None:
-        metadata = ET.Element(f"{ns}metadata")
-        if list(root):
-            root.insert(0, metadata)
-        else:
-            root.append(metadata)
-
-    # Ensure <metadata><name> exists and matches title
-    md_name = metadata.find(f"{ns}name")
-    if md_name is None:
-        md_name = ET.SubElement(metadata, f"{ns}name")
-    md_name.text = title
-
-    # Ensure <trk><name> exists and matches title (first track only)
-    trk = root.find(f"{ns}trk")
-    if trk is not None:
-        trk_name = trk.find(f"{ns}name")
-        if trk_name is None:
-            trk_name = ET.SubElement(trk, f"{ns}name")
-        trk_name.text = title
-
-    # Pretty print without blank lines
-    _indent(root)
-
-    out_bytes = ET.tostring(root, encoding="utf-8", xml_declaration=True)
-
-    t0 = first_time_utc_from_gpx(root)
-    stats = {
-        "source_bytes": len(raw),
-        "normalized_bytes": len(out_bytes),
-        "first_time_utc": t0.isoformat() if t0 else None,
-        "title": title,
-    }
-    return out_bytes, stats
 
 
 # ----------------------------
@@ -342,7 +202,7 @@ def prompt_str(prompt: str, default: str = "") -> str:
 # Main
 # ----------------------------
 def main() -> int:
-    ap = argparse.ArgumentParser(description="GPSmax Phase B: normalize GPX files into _work + sidecars.")
+    ap = argparse.ArgumentParser(description="GPSmax Phase 2: Normalize GPX files into _work + sidecars.")
     ap.add_argument("gpx", nargs="*", help="One or more GPX files (from _raw). If omitted, use fzf selection.")
     ap.add_argument("--raw-root", default=None, help="Raw root (default: from GPSmax config or ~/GPS/_raw)")
     ap.add_argument("--work-root", default=None, help="Work root (default: from GPSmax config or ~/GPS/_work)")
@@ -359,15 +219,17 @@ def main() -> int:
     args = ap.parse_args()
 
     # Resolve roots (CLI > config > defaults)
+    cfg = load_config() if load_config is not None else None
+    
     if args.raw_root:
         raw_root = Path(args.raw_root).expanduser()
     else:
-        raw_root = load_config().paths.raw_root if load_config is not None else (Path.home() / "GPS" / "_raw")
+        raw_root = cfg.paths.raw_root if cfg else (Path.home() / "GPS" / "_raw")
 
     if args.work_root:
         work_root = Path(args.work_root).expanduser()
     else:
-        work_root = load_config().paths.work_root if load_config is not None else (Path.home() / "GPS" / "_work")
+        work_root = cfg.paths.work_root if cfg else (Path.home() / "GPS" / "_work")
 
     raw_root = raw_root.expanduser()
     work_root = work_root.expanduser()
@@ -397,7 +259,7 @@ def main() -> int:
 
     for src in selected:
         if not src.is_file():
-            log(f"Skip non-file: {src}")
+            log(f"'{src}' is not a file: Skipping")
             continue
 
         # Infer device_id from path: .../_raw/<YYYY>/<YYYY-MM-DD>/<device_id>/...
@@ -414,10 +276,12 @@ def main() -> int:
 
         # Determine date from GPX, else today
         try:
-            root = ET.fromstring(src.read_bytes())
+            tree = read_gpx(src)
+            root = tree.getroot()
             t0 = first_time_utc_from_gpx(root)
         except Exception:
             t0 = None
+            
         if t0:
             y = f"{t0.year:04d}"
             day = t0.date().isoformat()
@@ -464,8 +328,14 @@ def main() -> int:
 
         ensure_dir(out_dir)
 
-        norm_bytes, stats = normalize_gpx(src, title=title)
-        normalized_path.write_bytes(norm_bytes)
+        res = normalize_gpx(
+            in_path = src, out_path = normalized_path, track_name = title,
+            set_metadata_name = True, set_trk_name = True,
+            ensure_metadata_time = True, pretty = True,
+        )
+
+        # Convert NormalizeResult -> dict for sidecar
+        stats = asdict(res)
 
         src_hash = sha256_file(src)
         norm_hash = sha256_file(normalized_path)
@@ -487,10 +357,12 @@ def main() -> int:
         arts.append(art)
         log(f"Normalized: {src.name} -> {normalized_path.name}")
 
+    # Write the manifest UNLESS it is a dry-run
     if not args.dry_run:
         run_manifest_dir = work_root / "manifests"
         ensure_dir(run_manifest_dir)
-        manifest_path = run_manifest_dir / f"normalize_{run_id.replace(':','').replace('+','_')}.json"
+        run_id_slug = run_id.replace(":", "").replace("+", "_").replace("-", "").replace(".", "")
+        manifest_path = run_manifest_dir / f"normalize_{run_id_slug}.json"
         write_json(manifest_path, normalization_manifest(arts, run))
         log(f"Wrote normalization manifest: {manifest_path}")
 
