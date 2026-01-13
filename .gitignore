@@ -14,6 +14,9 @@ build/
 # --- Emacs backups ---
 *~
 
+# --- Geany files ---
+*.geany
+
 # --- GPSmax runtime data ---
 GPS/
 */_raw/
