@@ -30,6 +30,7 @@ import datetime as dt
 import json
 import subprocess
 import sys
+import shlex
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional
@@ -82,23 +83,106 @@ def fzf_select(paths: list[Path], root: Path, multi: bool = True) -> list[Path]:
     if not which("fzf"):
         raise FzfNotFoundError("fzf not found on PATH. Install fzf or pass GPX files explicitly.")
 
-    rels = [str(p.relative_to(root)) if p.is_relative_to(root) else str(p) for p in paths]
-    input_text = "\n".join(rels)
+#    rels = [str(p.relative_to(root)) if p.is_relative_to(root) else str(p) for p in paths]
+    lines = [f"{p.name}\t{p}" for p in paths]
+    input_text = "\n".join(lines) + "\n"
+    PREVIEW_PY = r"""
+    import sys
+    import xml.etree.ElementTree as ET
 
-    cmd = ["fzf"]
-    if multi:
-        cmd.append("-m")
-    cmd += [
-        "--prompt", "GPSmax normalize > ",
-        "--height", "80%",
-        "--layout", "reverse",
-        "--border",
-        "--preview", f"head -n 60 '{root}/{{}}' 2>/dev/null || true",
-        "--preview-window", "right:60%:wrap",
-    ]
+    p = sys.argv[1]
+    ns = {"g": "http://www.topografix.com/GPX/1/1"}
 
+    def txt(el, path, default=""):
+        if el is None:
+            return default
+        return el.findtext(path, default=default, namespaces=ns)
+
+    def show_waypoints(root):
+        wpts = root.findall("g:wpt", ns)
+        print(f"Waypoints: {len(wpts)}\n")
+        for w in wpts[:20]:
+            lat = w.get("lat", "")
+            lon = w.get("lon", "")
+            name = txt(w, "g:name", default="(no name)")
+            desc = txt(w, "g:desc", default="")
+            t = txt(w, "g:time", default="")
+            line = f"{name}  ({lat}, {lon})"
+            if t:
+                line += f"  {t}"
+            print(line)
+            if desc:
+                print(f"  {desc}")
+
+    def show_routes(root):
+        rtes = root.findall("g:rte", ns)
+        print(f"Routes: {len(rtes)}\n")
+        r = rtes[0]
+        rname = txt(r, "g:name", default="(no rte name)")
+        print(f"Route: {rname}\n")
+        pts = r.findall("g:rtept", ns)
+        print(f"Routepoints: {len(pts)}\n")
+        for pt in pts[:12]:
+            lat = pt.get("lat", "")
+            lon = pt.get("lon", "")
+            t = txt(pt, "g:time", default="")
+            nm = txt(pt, "g:name", default="")
+            extra = f"  {nm}" if nm else ""
+            if t:
+                print(f"{lat}, {lon}  {t}{extra}")
+            else:
+                print(f"{lat}, {lon}{extra}")
+
+    def show_tracks(root):
+        trks = root.findall("g:trk", ns)
+        print(f"Tracks: {len(trks)}\n")
+        trk = trks[0]
+        name = txt(trk, "g:name", default="(no trk name)")
+        print(f"Track: {name}\n")
+        pts = trk.findall(".//g:trkpt", ns)
+        print(f"Trackpoints: {len(pts)}\n")
+        for pt in pts[:12]:
+            lat = pt.get("lat", "")
+            lon = pt.get("lon", "")
+            t = txt(pt, "g:time", default="")
+            if t:
+                print(f"{lat}, {lon}  {t}")
+            else:
+                print(f"{lat}, {lon}")
+
+    try:
+        tree = ET.parse(p)
+        root = tree.getroot()
+    except Exception as e:
+        print(f"Failed to parse GPX: {e}")
+        raise SystemExit(0)
+
+    # Prefer tracks, then routes, then waypoints
+    if root.find("g:trk", ns) is not None:
+        show_tracks(root)
+    elif root.find("g:rte", ns) is not None:
+        show_routes(root)
+    elif root.find("g:wpt", ns) is not None:
+        show_waypoints(root)
+    else:
+        print("No <trk>, <rte>, or <wpt> elements found.")
+    """
+
+    fzf_cmd = ["fzf",
+           "--ansi",
+           "--delimiter=\t",
+           "--header", "Select GPX file(s) (searches by filename).",
+           "--height", "60%",
+           "--layout", "reverse",
+           "--border",
+           "--multi" if multi else "--no-multi",
+           "--nth=1", "--with-nth=1",
+           "--preview", f"python -c {shlex.quote(PREVIEW_PY)} {{2}}",
+           "--preview-window", "right:60%:wrap",
+           ]
+    
     proc = subprocess.run(
-        cmd,
+        fzf_cmd,
         input=input_text.encode("utf-8"),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
