@@ -25,3 +25,67 @@ runtime_root = "~/GPS"
 [db]
 # Optional override; otherwise defaults to "<db_root>/gps.sqlite"
 # sqlite_path = "~/GPS/_db/gps.sqlite"
+
+# ---------------------------------------------------------------------------
+# Normalization
+# ---------------------------------------------------------------------------
+#
+# Normalization reads GPX files from _raw (or explicit paths), writes normalized
+# GPX outputs into _work, and optionally writes a sidecar and manifest.
+#
+# Presets provide per-run/per-file defaults (activity, geotag flags, naming).
+# CLI flags still override these, and your interactive prompts can override
+# per-file values as well.
+
+[normalize]
+# Name of preset used if you do not specify one on the command line.
+default_preset = "default"
+
+# If true, prompt only for fields that are missing/unknown for that file.
+# If false, prompt for everything every time.
+prompt_only_missing = true
+
+# If true, write a sidecar JSON alongside normalized GPX output.
+write_sidecar = true
+
+
+# ---------------------------------------------------------------------------
+# Presets
+# ---------------------------------------------------------------------------
+#
+# Define presets as tables:
+#   [normalize.presets.NAME]
+#
+# Any fields you omit will fall back to the defaults shown in the [default] preset.
+
+[normalize.presets.default]
+activity = "unknown"
+geotag_candidate = false
+
+# Used to build output filenames. Variables are interpreted by your normalization script.
+# Keep templates short and path-safe when slugified.
+name_template = "{date}_{title}_{activity}"
+
+# If true, user-entered titles are slugified (spaces -> underscores, etc.)
+slugify_title = true
+
+# If true and title is missing, derive a best-effort title from the filename.
+title_from_filename_if_missing = true
+
+
+# Example presets (customize to your workflow)
+
+[normalize.presets.hike]
+activity = "hiking"
+geotag_candidate = true
+name_template = "{date}_{title}_{activity}"
+
+[normalize.presets.drive]
+activity = "driving"
+geotag_candidate = false
+name_template = "{date}_{title}_{activity}"
+
+[normalize.presets.photowalk]
+activity = "photowalk"
+geotag_candidate = true
+name_template = "{date}_{title}_{activity}"
