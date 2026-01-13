@@ -47,12 +47,6 @@ import xml.etree.ElementTree as ET
 # ----------------------------
 # GPSmax Configuration
 # ----------------------------
-# When running this file directly, ensure the repo root is importable so
-# that `from gpsmax.config import load_config` works.
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 try:
     from gpsmax.config import load_config
 except Exception as e:

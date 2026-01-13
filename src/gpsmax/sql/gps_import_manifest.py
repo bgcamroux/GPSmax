@@ -27,12 +27,6 @@ from typing import Any
 # ----------------------------
 # GPSmax configuration
 # ----------------------------
-# When running this file directly (python scripts/sql/gps_import_manifest.py),
-# add the repo root to sys.path so `from gpsmax.config import load_config` works.
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 try:
     from gpsmax.config import load_config
 except Exception:

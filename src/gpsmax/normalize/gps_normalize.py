@@ -27,10 +27,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-#import hashlib
 import json
-#import os
-#import re
 import subprocess
 import sys
 from dataclasses import dataclass, asdict
@@ -47,9 +44,6 @@ from gpsmax.formats.gpx import first_time_utc_from_gpx, read_gpx, normalize_gpx
 # ----------------------------
 # GPSmax configuration import
 # ----------------------------
-#REPO_ROOT = Path(__file__).resolve().parents[2]  # <repo>/scripts/normalize/gps_normalize.py
-#if str(REPO_ROOT) not in sys.path:
-#    sys.path.insert(0, str(REPO_ROOT))
 try:
     from gpsmax.config import load_config
 except Exception:
