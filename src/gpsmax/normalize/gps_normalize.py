@@ -171,7 +171,7 @@ def fzf_select(paths: list[Path], root: Path, multi: bool = True) -> list[Path]:
     fzf_cmd = ["fzf",
            "--ansi",
            "--delimiter=\t",
-           "--header", "Select GPX file(s) (searches by filename).",
+           "--header", "Select GPX file(s):",
            "--height", "60%",
            "--layout", "reverse",
            "--border",
