@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 import subprocess
 import sys
 import shlex
@@ -276,6 +277,44 @@ def prompt_str(prompt: str, default: str = "") -> str:
     return input(f"{prompt}: ").strip()
 
 
+def render_name_template(template: str, *, date: str, title: str, activity: str, device: str) -> str:
+    """
+    Render a name template using a controlled set of variables.
+
+    Supported placeholders:
+      {date}     e.g., 2025-08-25
+      {title}    human title
+      {activity} activity label
+      {device}   device_id (e.g., gpsmap67)
+
+    We fail fast with a clear message if the template references an unknown key.
+    """
+    try:
+        return template.format(date=date, title=title, activity=activity, device=device)
+    except KeyError as e:
+        raise NormalizeError(
+            f"Unknown placeholder {e!s} in name_template: {template!r}. "
+            "Valid: {date}, {title}, {activity}, {device}."
+        ) from e
+
+
+def sanitize_filename(s: str) -> str:
+    """
+    Make a string safe-ish for a filename without full slugification.
+
+    This is only used if you later decide to allow non-slugified names.
+    For now, keep slugify() for everything.
+    """
+    s = s.strip()
+    s = re.sub(r"[^\w.\-]+", "_", s, flags=re.UNICODE)  # spaces/punctuation to underscore
+    s = re.sub(r"_+", "_", s)                           # collapse repeats
+    s = s.strip("._-")
+    return s or "track"
+
+
+
+
+
 # ----------------------------
 # Main
 # ----------------------------
@@ -400,7 +439,7 @@ def main() -> int:
             title = default_title
             activity = default_activity
             if args.no_geotag:
-                geotag_candidate = False
+                geotag_candidate = preset.geotag_candidate if preset else False
             elif args.geotag:
                 geotag_candidate = True
             else:
@@ -411,12 +450,28 @@ def main() -> int:
         if geotag_candidate and args.photos_pending:
             photos_pending = True
 
-        # NOTE: name_template support will be applied here in phase 2.2
-        track_slug = slugify(title)
+        # 1. Choose template: CLI may override later if added, but for now
+        #    we take it from the preset/config.
+        template = preset.name_template if preset else "{date}_{title}"
+
+        # 2. Render human-readable base name
+        #    May contain spaces, punctuation, etc.
+        base_name = render_name_template(
+            template,
+            date=day,         # YYYY-MM-DD from GPX or local date fallback
+            title=title,
+            activity=activity,
+            device=device_id,
+        )
+
+        # 3. Convert to path-safe name for dir & output filenames.
+        #    For now we slugify the final name as it is stable and consistent
+        track_slug = slugify(base_name)
+
         out_dir = work_root / y / day / device_id / track_slug
         normalized_path = out_dir / f"{track_slug}.gpx"
         sidecar_path = out_dir / f"{track_slug}.sidecar.json"
-
+        
         if args.verbose or args.dry_run:
             log(f"Plan: {src} -> {normalized_path}")
             log(f"      sidecar -> {sidecar_path}")
