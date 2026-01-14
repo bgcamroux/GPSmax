@@ -175,7 +175,7 @@ def _find_or_create_metadata(root: ET.Element) -> ET.Element:
 class TrackPoint:
     lat: float
     lon: float
-    time: datetime
+    time: _dt.datetime
     ele: float | None = None
 
 
@@ -193,19 +193,19 @@ class NormalizeResult:
 
 def extract_trackpoints(tree: ET.ElementTree) -> list[TrackPoint]:
     """Extract ordered trackpoints from a GPX tree."""
-    root = tree.getroot()
     pts: list[TrackPoint] = []
 
     for trkpt in root.findall(".//gpx:trkpt", GPX_NS):
         lat = float(trkpt.get("lat"))
         lon = float(trkpt.get("lon"))
         
-        t = trkpt.findtext("gpx:time", namespaces=GPX_NS).strip()
+        t = trkpt.findtext("gpx:time", default="", namespaces=GPX_NS).strip()
         if not t:
             continue   # skip points without timestamps
-        time = parse_time_utc(t)
+        else:
+            time = _parse_gpx_time(t)
 
-        ele_text = trkpt.findtext("gpx:ele", namespaces=GPX_NS).strip()
+        ele_text = trkpt.findtext("gpx:ele", default="", namespaces=GPX_NS).strip()
         ele = float(ele_text) if ele_text else None
 
         pts.append(TrackPoint(lat=lat, lon=lon, time=time, ele=ele))
