@@ -188,17 +188,31 @@ def fzf_select(paths: list[Path], root: Path, multi: bool = True) -> list[Path]:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
+
     if proc.returncode not in (0, 130):
         raise NormalizeError(f"fzf failed: {proc.stderr.decode('utf-8', errors='replace')}")
+
     out = proc.stdout.decode("utf-8", errors="replace").strip()
+
     if not out:
         return []
+
     selected: list[Path] = []
+
     for line in out.splitlines():
         line = line.strip()
         if not line:
             continue
-        selected.append((root / line).resolve() if not Path(line).is_absolute() else Path(line).resolve())
+
+        # fzf returns whole displayed line: "name<TAB>fullpath"
+        if "\t" in line:
+            _, path_str = line.split("\t",1)
+        else:
+            path_str = line
+            
+        p = Path(path_str).expanduser()
+        selected.append(p.resolve())
+        
     return selected
 
 
@@ -508,7 +522,7 @@ def main() -> int:
 
         write_json(sidecar_path, sidecar_doc(art, stats, notes=notes))
         arts.append(art)
-        log(f"Normalized: {src.name} -> {normalized_path.name}")
+        log(f"Normalized: {src.name} -> {normalized_path.name}\n")
 
     # Write the manifest UNLESS it is a dry-run
     if not args.dry_run:
