@@ -172,6 +172,14 @@ def _find_or_create_metadata(root: ET.Element) -> ET.Element:
 
 
 @dataclass(frozen=True)
+class TrackPoint:
+    lat: float
+    lon: float
+    time: datetime
+    ele: float | None = None
+
+
+@dataclass(frozen=True)
 class NormalizeResult:
     """
     Summary of XML-level normalization actions (useful for manifests/sidecars).
@@ -183,6 +191,28 @@ class NormalizeResult:
     first_time_utc: Optional[str]  # ISO string (UTC, Z) or None
 
 
+def extract_trackpoints(tree: ET.ElementTree) -> list[TrackPoint]:
+    """Extract ordered trackpoints from a GPX tree."""
+    root = tree.getroot()
+    pts: list[TrackPoint] = []
+
+    for trkpt in root.findall(".//gpx:trkpt", GPX_NS):
+        lat = float(trkpt.get("lat"))
+        lon = float(trkpt.get("lon"))
+        
+        t = trkpt.findtext("gpx:time", namespaces=GPX_NS).strip()
+        if not t:
+            continue   # skip points without timestamps
+        time = parse_time_utc(t)
+
+        ele_text = trkpt.findtext("gpx:ele", namespaces=GPX_NS).strip()
+        ele = float(ele_text) if ele_text else None
+
+        pts.append(TrackPoint(lat=lat, lon=lon, time=time, ele=ele))
+
+    return pts
+
+    
 def normalize_gpx(
         in_path: Path, out_path: Path, *,
         track_name: Optional[str] = None,
