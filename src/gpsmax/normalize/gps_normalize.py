@@ -285,6 +285,7 @@ def main() -> int:
     ap.add_argument("--raw-root", default=None, help="Raw root (default: from GPSmax config or ~/GPS/_raw)")
     ap.add_argument("--work-root", default=None, help="Work root (default: from GPSmax config or ~/GPS/_work)")
     ap.add_argument("--device-id", default=None, help="Override device_id directory name (default: infer from path if possible)")
+    ap.add_argument("--preset", default=None, help="Normalization preset name (from config.toml).")
     ap.add_argument("--activity", default=None, help="Activity label (e.g., hiking, driving, cycling).")
     ap.add_argument("--title", default=None, help="Track title.")
     ap.add_argument("--geotag", action="store_true", help="Mark as geotag candidate (photos were taken and may be geotagged).")
@@ -298,7 +299,14 @@ def main() -> int:
 
     # Resolve roots (CLI > config > defaults)
     cfg = load_config() if load_config is not None else None
+    norm_cfg = cfg.normalize if cfg else None
+    if args.verbose and preset:
+        log(f"Using normalization preset: {args.preset or norm_cfg.default_preset}")
     
+    preset = None
+    if norm_cfg:
+        preset = norm_cfg.get_preset(args.preset)
+        
     if args.raw_root:
         raw_root = Path(args.raw_root).expanduser()
     else:
@@ -369,12 +377,23 @@ def main() -> int:
             day = now.date().isoformat()
 
         default_title = args.title or src.stem
-        default_activity = args.activity or "unknown"
+        
+        default_activity = (
+            args.activity
+            if args.activity is not None
+            else (preset.activity if preset else "unknown")
+        )
 
-        if args.prompt:
+        do_prompt = args.prompt or (norm_cfg and not norm_cfg.prompt_only_missing)
+        if do_prompt:
             title = prompt_str(f"Title for {src.name}", default=default_title)
             activity = prompt_str(f"Activity for {src.name}", default=default_activity) or default_activity
-            geotag_default = True if args.geotag and not args.no_geotag else False
+            if args.no_geotag:
+                geotag_default = False
+            elif args.geotag:
+                geotag_default = True
+            else:
+                geotag_default = preset.geotag_candidate if preset else False
             geotag_candidate = prompt_bool(f"Geotag candidate for {src.name}?", default=geotag_default)
             notes = prompt_str(f"Notes for {src.name}", default=(args.notes or ""))
         else:
@@ -392,6 +411,7 @@ def main() -> int:
         if geotag_candidate and args.photos_pending:
             photos_pending = True
 
+        # NOTE: name_template support will be applied here in phase 2.2
         track_slug = slugify(title)
         out_dir = work_root / y / day / device_id / track_slug
         normalized_path = out_dir / f"{track_slug}.gpx"
