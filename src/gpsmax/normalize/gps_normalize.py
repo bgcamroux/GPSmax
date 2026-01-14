@@ -326,7 +326,29 @@ def sanitize_filename(s: str) -> str:
     return s or "track"
 
 
+def choose_output_slug(base_slug: str, out_base: Path, src: Path) -> str:
+    """
+    Choose a directory slug under out_base that will not clobber an existing track.
 
+    - If out_base/base_slug does not exist: use it.
+    - If it exists: append a deterministic suffix derived from src content.
+    """
+    candidate = base_slug
+    target_dir = out_base / candidate
+    if not target_dir.exists():
+        return candidate
+
+    full_hash = sha256_file(src)
+    sid8 = full_hash[:8]
+    sid12 = full_hash[:12]
+    candidate = f"{base_slug}__{sid8}"
+    target_dir = out_base / candidate
+    if not target_dir.exists():
+        return candidate
+
+    # Extremely unlikely: collision on both base slug and suffix.
+    # Fall back to widening the suffix.
+    return f"{base_slug}__{sid12}"
 
 
 # ----------------------------
@@ -481,8 +503,10 @@ def main() -> int:
         # 3. Convert to path-safe name for dir & output filenames.
         #    For now we slugify the final name as it is stable and consistent
         track_slug = slugify(base_name)
+        out_base = work_root / y / day / device_id
+        track_slug = choose_output_slug(track_slug, out_base, src)
 
-        out_dir = work_root / y / day / device_id / track_slug
+        out_dir = out_base / track_slug
         normalized_path = out_dir / f"{track_slug}.gpx"
         sidecar_path = out_dir / f"{track_slug}.sidecar.json"
         
