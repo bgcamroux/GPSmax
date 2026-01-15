@@ -41,7 +41,8 @@ from gpsmax.util.hashing import sha256_file
 #from gpsmax.util.subprocess import run_cmd as run
 from gpsmax.util.paths import ensure_dir, slugify, which
 from gpsmax.formats.gpx import first_time_utc_from_gpx, read_gpx, normalize_gpx
-
+from gpsmax.util.fzf import fzf_select_paths
+from gpsmax.errors import FzfNotFoundError, NormalizeError
 
 # ----------------------------
 # GPSmax configuration import
@@ -53,17 +54,6 @@ except Exception:
 
 
 SCRIPT_VERSION = "0.1.0"
-
-
-# ----------------------------
-# Errors
-# ----------------------------
-class NormalizeError(RuntimeError):
-    pass
-
-
-class FzfNotFoundError(NormalizeError):
-    pass
 
 
 # ----------------------------
