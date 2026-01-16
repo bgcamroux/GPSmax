@@ -2,9 +2,16 @@
 .venv/
 venv/
 __pycache__/
+.pytest_cache/
+.coverage
+htmlcov
 .DS_Store
 .env
 *.py[cod]
+
+# --- Exclude test data except for `sample` files ---
+tests/data/*.gpx
+!tests/data/sample_*.gpx
 
 # --- Python packaging artifacts ---
 *.egg-info/
