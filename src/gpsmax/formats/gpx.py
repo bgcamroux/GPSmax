@@ -195,7 +195,7 @@ def extract_trackpoints(tree: ET.ElementTree) -> list[TrackPoint]:
     """Extract ordered trackpoints from a GPX tree."""
     pts: list[TrackPoint] = []
 
-    for trkpt in root.findall(".//gpx:trkpt", GPX_NS):
+    for trkpt in tree.findall(".//gpx:trkpt", GPX_NS):
         lat = float(trkpt.get("lat"))
         lon = float(trkpt.get("lon"))
         

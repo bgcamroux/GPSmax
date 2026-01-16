@@ -57,7 +57,7 @@ SCRIPT_VERSION = "0.1.0"
 
 
 # ----------------------------
-# fzf selection
+# File candidate listing
 # ----------------------------
 def list_gpx_candidates(raw_root: Path) -> list[Path]:
     if not raw_root.is_dir():
@@ -68,142 +68,6 @@ def list_gpx_candidates(raw_root: Path) -> list[Path]:
             out.append(p)
     out.sort()
     return out
-
-
-def fzf_select(paths: list[Path], root: Path, multi: bool = True) -> list[Path]:
-    if not which("fzf"):
-        raise FzfNotFoundError("fzf not found on PATH. Install fzf or pass GPX files explicitly.")
-
-#    rels = [str(p.relative_to(root)) if p.is_relative_to(root) else str(p) for p in paths]
-    lines = [f"{p.name}\t{p}" for p in paths]
-    input_text = "\n".join(lines) + "\n"
-    PREVIEW_PY = r"""
-    import sys
-    import xml.etree.ElementTree as ET
-
-    p = sys.argv[1]
-    ns = {"g": "http://www.topografix.com/GPX/1/1"}
-
-    def txt(el, path, default=""):
-        if el is None:
-            return default
-        return el.findtext(path, default=default, namespaces=ns)
-
-    def show_waypoints(root):
-        wpts = root.findall("g:wpt", ns)
-        print(f"Waypoints: {len(wpts)}\n")
-        for w in wpts[:20]:
-            lat = w.get("lat", "")
-            lon = w.get("lon", "")
-            name = txt(w, "g:name", default="(no name)")
-            desc = txt(w, "g:desc", default="")
-            t = txt(w, "g:time", default="")
-            line = f"{name}  ({lat}, {lon})"
-            if t:
-                line += f"  {t}"
-            print(line)
-            if desc:
-                print(f"  {desc}")
-
-    def show_routes(root):
-        rtes = root.findall("g:rte", ns)
-        print(f"Routes: {len(rtes)}\n")
-        r = rtes[0]
-        rname = txt(r, "g:name", default="(no rte name)")
-        print(f"Route: {rname}\n")
-        pts = r.findall("g:rtept", ns)
-        print(f"Routepoints: {len(pts)}\n")
-        for pt in pts[:12]:
-            lat = pt.get("lat", "")
-            lon = pt.get("lon", "")
-            t = txt(pt, "g:time", default="")
-            nm = txt(pt, "g:name", default="")
-            extra = f"  {nm}" if nm else ""
-            if t:
-                print(f"{lat}, {lon}  {t}{extra}")
-            else:
-                print(f"{lat}, {lon}{extra}")
-
-    def show_tracks(root):
-        trks = root.findall("g:trk", ns)
-        print(f"Tracks: {len(trks)}\n")
-        trk = trks[0]
-        name = txt(trk, "g:name", default="(no trk name)")
-        print(f"Track: {name}\n")
-        pts = trk.findall(".//g:trkpt", ns)
-        print(f"Trackpoints: {len(pts)}\n")
-        for pt in pts[:12]:
-            lat = pt.get("lat", "")
-            lon = pt.get("lon", "")
-            t = txt(pt, "g:time", default="")
-            if t:
-                print(f"{lat}, {lon}  {t}")
-            else:
-                print(f"{lat}, {lon}")
-
-    try:
-        tree = ET.parse(p)
-        root = tree.getroot()
-    except Exception as e:
-        print(f"Failed to parse GPX: {e}")
-        raise SystemExit(0)
-
-    # Prefer tracks, then routes, then waypoints
-    if root.find("g:trk", ns) is not None:
-        show_tracks(root)
-    elif root.find("g:rte", ns) is not None:
-        show_routes(root)
-    elif root.find("g:wpt", ns) is not None:
-        show_waypoints(root)
-    else:
-        print("No <trk>, <rte>, or <wpt> elements found.")
-    """
-
-    fzf_cmd = ["fzf",
-           "--ansi",
-           "--delimiter=\t",
-           "--header", "Select GPX file(s):",
-           "--height", "60%",
-           "--layout", "reverse",
-           "--border",
-           "--multi" if multi else "--no-multi",
-           "--nth=1", "--with-nth=1",
-           "--preview", f"python -c {shlex.quote(PREVIEW_PY)} {{2}}",
-           "--preview-window", "right:60%:wrap",
-           ]
-    
-    proc = subprocess.run(
-        fzf_cmd,
-        input=input_text.encode("utf-8"),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    if proc.returncode not in (0, 130):
-        raise NormalizeError(f"fzf failed: {proc.stderr.decode('utf-8', errors='replace')}")
-
-    out = proc.stdout.decode("utf-8", errors="replace").strip()
-
-    if not out:
-        return []
-
-    selected: list[Path] = []
-
-    for line in out.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-
-        # fzf returns whole displayed line: "name<TAB>fullpath"
-        if "\t" in line:
-            _, path_str = line.split("\t",1)
-        else:
-            path_str = line
-            
-        p = Path(path_str).expanduser()
-        selected.append(p.resolve())
-        
-    return selected
 
 
 # ----------------------------
@@ -341,25 +205,121 @@ def choose_output_slug(base_slug: str, out_base: Path, src: Path) -> str:
     return f"{base_slug}__{sid12}"
 
 
+PREVIEW_PY = r"""
+import sys
+import xml.etree.ElementTree as ET
+
+p = sys.argv[1]
+ns = {"g": "http://www.topografix.com/GPX/1/1"}
+
+def txt(el, path, default=""):
+    if el is None:
+        return default
+    return el.findtext(path, default=default, namespaces=ns)
+
+def show_waypoints(root):
+    wpts = root.findall("g:wpt", ns)
+    print(f"Waypoints: {len(wpts)}\n")
+    for w in wpts[:20]:
+        lat = w.get("lat", "")
+        lon = w.get("lon", "")
+        name = txt(w, "g:name", default="(no name)")
+        desc = txt(w, "g:desc", default="")
+        t = txt(w, "g:time", default="")
+        line = f"{name}  ({lat}, {lon})"
+        if t:
+            line += f"  {t}"
+        print(line)
+        if desc:
+            print(f"  {desc}")
+
+def show_routes(root):
+    rtes = root.findall("g:rte", ns)
+    print(f"Routes: {len(rtes)}\n")
+    r = rtes[0]
+    rname = txt(r, "g:name", default="(no rte name)")
+    print(f"Route: {rname}\n")
+    pts = r.findall("g:rtept", ns)
+    print(f"Routepoints: {len(pts)}\n")
+    for pt in pts[:12]:
+        lat = pt.get("lat", "")
+        lon = pt.get("lon", "")
+        t = txt(pt, "g:time", default="")
+        nm = txt(pt, "g:name", default="")
+        extra = f"  {nm}" if nm else ""
+        if t:
+            print(f"{lat}, {lon}  {t}{extra}")
+        else:
+            print(f"{lat}, {lon}{extra}")
+
+def show_tracks(root):
+    trks = root.findall("g:trk", ns)
+    print(f"Tracks: {len(trks)}\n")
+    trk = trks[0]
+    name = txt(trk, "g:name", default="(no trk name)")
+    print(f"Track: {name}\n")
+    pts = trk.findall(".//g:trkpt", ns)
+    print(f"Trackpoints: {len(pts)}\n")
+    for pt in pts[:12]:
+        lat = pt.get("lat", "")
+        lon = pt.get("lon", "")
+        t = txt(pt, "g:time", default="")
+        if t:
+            print(f"{lat}, {lon}  {t}")
+        else:
+            print(f"{lat}, {lon}")
+
+try:
+    tree = ET.parse(p)
+    root = tree.getroot()
+except Exception as e:
+    print(f"Failed to parse GPX: {e}")
+    raise SystemExit(0)
+
+# Prefer tracks, then routes, then waypoints
+if root.find("g:trk", ns) is not None:
+    show_tracks(root)
+elif root.find("g:rte", ns) is not None:
+    show_routes(root)
+elif root.find("g:wpt", ns) is not None:
+    show_waypoints(root)
+else:
+    print("No <trk>, <rte>, or <wpt> elements found.")
+"""
+
 # ----------------------------
 # Main
 # ----------------------------
 def main() -> int:
     ap = argparse.ArgumentParser(description="GPSmax Phase 2: Normalize GPX files into _work + sidecars.")
-    ap.add_argument("gpx", nargs="*", help="One or more GPX files (from _raw). If omitted, use fzf selection.")
-    ap.add_argument("--raw-root", default=None, help="Raw root (default: from GPSmax config or ~/GPS/_raw)")
-    ap.add_argument("--work-root", default=None, help="Work root (default: from GPSmax config or ~/GPS/_work)")
-    ap.add_argument("--device-id", default=None, help="Override device_id directory name (default: infer from path if possible)")
-    ap.add_argument("--preset", default=None, help="Normalization preset name (from config.toml).")
-    ap.add_argument("--activity", default=None, help="Activity label (e.g., hiking, driving, cycling).")
-    ap.add_argument("--title", default=None, help="Track title.")
-    ap.add_argument("--geotag", action="store_true", help="Mark as geotag candidate (photos were taken and may be geotagged).")
-    ap.add_argument("--no-geotag", action="store_true", help="Explicitly mark as not a geotag candidate.")
-    ap.add_argument("--photos-pending", action="store_true", help="If geotag, mark photos_pending=true (default true when geotag candidate).")
-    ap.add_argument("--notes", default=None, help="Notes to add to sidecar.")
-    ap.add_argument("--prompt", action="store_true", help="Prompt for title/activity/geotag per file.")
-    ap.add_argument("--dry-run", action="store_true", help="Show what would be done but do not write files.")
-    ap.add_argument("--verbose", action="store_true", help="More logging.")
+    ap.add_argument("gpx", nargs="*",
+                    help="One or more GPX files (from _raw). If omitted, use fzf selection.")
+    ap.add_argument("--raw-root", default=None,
+                    help="Raw root (default: from GPSmax config or ~/GPS/_raw)")
+    ap.add_argument("--work-root", default=None,
+                    help="Work root (default: from GPSmax config or ~/GPS/_work)")
+    ap.add_argument("--device-id", default=None,
+                    help="Override device_id directory name (default: infer from path if possible)")
+    ap.add_argument("--preset", default=None,
+                    help="Normalization preset name (from config.toml).")
+    ap.add_argument("--activity", default=None,
+                    help="Activity label (e.g., hiking, driving, cycling).")
+    ap.add_argument("--title", default=None,
+                    help="Track title.")
+    ap.add_argument("--geotag", action="store_true",
+                    help="Mark as geotag candidate (photos were taken and may be geotagged).")
+    ap.add_argument("--no-geotag", action="store_true",
+                    help="Explicitly mark as not a geotag candidate.")
+    ap.add_argument("--photos-pending", action="store_true",
+                    help="If geotag, mark photos_pending=true (default true when geotag candidate).")
+    ap.add_argument("--notes", default=None,
+                    help="Notes to add to sidecar.")
+    ap.add_argument("--prompt", action="store_true",
+                    help="Prompt for title/activity/geotag per file.")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="Show what would be done but do not write files.")
+    ap.add_argument("--verbose", action="store_true",
+                    help="More logging.")
     args = ap.parse_args()
 
     # Resolve roots (CLI > config > defaults)
@@ -384,7 +344,8 @@ def main() -> int:
 
     raw_root = raw_root.expanduser()
     work_root = work_root.expanduser()
-
+    preview = f"python -c {shlex.quote(PREVIEW_PY)} {{2}}"
+    
     # Determine selected inputs
     if args.gpx:
         selected = [Path(p).expanduser().resolve() for p in args.gpx]
@@ -393,7 +354,13 @@ def main() -> int:
         if not candidates:
             log(f"No GPX candidates found under raw_root={raw_root}")
             return 2
-        selected = fzf_select(candidates, raw_root, multi=True)
+#        selected = fzf_select(candidates, raw_root, multi=True)
+        selected = fzf_select_paths(
+            candidates,
+            header="Select GPX file(s):",
+            multi=True,
+            preview=preview,
+        )
         if not selected:
             log("No selection made. Exiting.")
             return 0
