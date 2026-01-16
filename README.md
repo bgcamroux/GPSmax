@@ -55,6 +55,7 @@ src/
     visualize/     Track visualiztion
   tests/           Pytest-based testing suite
     data/          Test data
+```
 
 ## Development & Testing
 Currently only testing using `pytest`:
