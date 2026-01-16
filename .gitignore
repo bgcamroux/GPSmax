@@ -11,7 +11,7 @@ htmlcov
 
 # --- Exclude test data except for `sample` files ---
 tests/data/*.gpx
-!tests/data/sample_*.gpx
+!tests/data/sample*.gpx
 
 # --- Python packaging artifacts ---
 *.egg-info/
