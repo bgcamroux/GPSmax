@@ -7,7 +7,9 @@ name = "gpsmax"
 version = "0.1.0"
 description = "GPSmax: A Unix-style consumer GPS data pipeline"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+  "haversine",
+]
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov"]
