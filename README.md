@@ -35,7 +35,7 @@ pip install -e .[dev]
 ## Configuration
 Configuration lives either in your local config folder (eg. `~/user/.config`) or in `gpxmax/config`. Configuration is loaded at runtime by using the `load_config` function.
 
-Minimal example config:
+###Minimal example config:
 ```
 [paths]
 runtime_root = "~/GPS"
@@ -60,7 +60,7 @@ src/
 ## Development & Testing
 Currently only testing using `pytest`:
 
-`pytest --cov=gpsmax'
+`pytest --cov=gpsmax`
 
 ## Contributing
 Currently under sole-development. If you are interested in contributing, please contact the developer.
