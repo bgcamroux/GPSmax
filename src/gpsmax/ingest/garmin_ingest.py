@@ -85,7 +85,7 @@ class FileRecord:
 
 def classify_gpx(relpath_posix: str) -> Tuple[str, Optional[str]]:
     """Return (category, sub_relpath_under_category) or ('Skip', None)."""
-    p = relpath_posix
+    p = "/" + relpath_posix.lstrip("/")
 
     m = re.search(r"/GARMIN/GPX/Current/(.+\.gpx)$", p, flags=re.IGNORECASE)
     if m:
@@ -108,13 +108,19 @@ def classify_gpx(relpath_posix: str) -> Tuple[str, Optional[str]]:
 
 def iter_gpx_files(gvfs_root: Path) -> Iterable[Tuple[Path, str]]:
     """Yield (absolute_path, relpath_posix) for *.gpx under likely GARMIN trees."""
+    gvfs_root = gvfs_root.resolve()
     for root, dirs, files in os.walk(gvfs_root):
-        if "GARMIN" not in root.upper():
+        root_path = Path(root)
+
+        # Allow descent from top-level mount root.
+        # Only prune subtrees once below gvfs_root and still not in a GARMIN path.
+        if root_path != gvfs_root and "GARMIN" not in root.upper():
             dirs[:] = []
             continue
+        
         for fn in files:
             if fn.lower().endswith(".gpx"):
-                ap = Path(root) / fn
+                ap = root_path / fn
                 rel = ap.relative_to(gvfs_root).as_posix()
                 yield ap, rel
 
