@@ -24,6 +24,10 @@ build/
 # --- Geany files ---
 *.geany
 
+# --- Documentation ---
+docs/*.pdf
+docs/*.ps
+
 # --- GPSmax runtime data ---
 GPS/
 */_raw/
