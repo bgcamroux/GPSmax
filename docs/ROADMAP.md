@@ -1,8 +1,8 @@
 # GPSmax — Project Summary & Roadmap
 
-## Project Intent (The Big Picture)
+## Project Summary (The Big Picture)
 
-**GPSmax** is a personal, Unix-style GPS data pipeline designed to:
+**GPSmax** is a personal, Unix-style consumer GPS data pipeline designed to:
 
 - Preserve *all* data produced by GPS receivers (tracks, sensors, metadata)
 - Enforce clear separation between **raw data**, **working data**, and **derived products**
@@ -10,7 +10,34 @@
 - Support long-term analysis, visualization, and geotagging workflows
 - Avoid vendor lock-in and GUI fragility while remaining tool-agnostic
 
-The system favors **small, composable tools** over monoliths, and treats GPX files as first-class, inspectable artifacts rather than opaque blobs.
+The system favors **small, composable tools** over monoliths, and treats GPX files as first-class, inspectable artifacts rather than opaque blobs. Initially built with Garmin devices in mind, this can be easily expanded to any device that outputs a GPX data file.
+
+---
+
+## Quick-View
+
+**In the Beginning, I wanted...**
+- something to quickly copy track files off of my GPS receiver onto my PC
+- to be able to split tracks based on activity, if mixed (eg. driving, walking, cycling, etc.)
+- the ability to quickly and reliably "prune" my tracks of points recorded during rests
+- a central repository for my GPS data files and any derivatives
+
+**First Iteration:**
+- Shell scripting -- data ingestion
+- All-in-one directory structure - code and data mixed together
+- This quickly grew to something I knew I would want more power for, so I moved into Python
+
+**Second Iteration:**
+- Python ingestion and data provenance recording
+- Move code to separate directory tree
+- Introduced Git version control
+- Write manifest (metadata) for each data transfer, stored in SQLite database
+- Centralized configuration system
+
+**Third Iteration:**
+- Extract shared logic into reusable modules (`gpsmax/devices` and `gpsmax/util`)
+  - Refactor existing scripts to import from new modules
+- 
 
 ---
 
@@ -26,13 +53,14 @@ A shell script using:
 - `gio mount` for MTP access
 - `cp` for copying GPX files
 - Directory mirroring of the Garmin internal structure
+- No version control
 
 ### Lessons Learned
 - Shell scripting hits complexity limits quickly (parsing, manifests, checksums)
 - Device paths are unwieldy and should not define long-term storage layout
 - Provenance and auditability matter more than initially expected
+- Version control using Git will help to manage both history and progress
 
----
 
 ## Phase 1 — Python Ingestion + Provenance (Complete)
 
@@ -41,25 +69,24 @@ A shell script using:
 - `_raw` data store with stable directory layout
 - Manifest generation with SHA-256 checksums
 - Graceful handling of absent hardware
-- Centralized configuration system
+- Centralized configuration system (either in code stack or in `~/.config/gpsmax/`)
 - SQLite Phase 1 schema and manifest importer
 - Clean Git separation between code and runtime data
 
----
 
-## Phase 1+ — Internal Code Consolidation (Complete)
+## Phase 1.1 — Internal Code Consolidation (Complete)
 
 ### Goal
 Reduce duplication and improve maintainability by extracting shared helper logic into reusable modules.
 
 ### Completed Work
 - Introduce `gpsmax/util/` and `gpsmax/devices/` to house shared helper functions:
-  - logging and timestamps --> gpsmax/util/logging.py
-  - hashing utilities --> gpsmax/util/hashing.py
-  - filesystem/path helpers --> gpsmax/util/paths.py
-  - subprocess wrappers --> gpsmax/util/subprocess.py
-  - mtp handling wrappers --> gpsmax/devices/mtp.py
-  - garmin-specific wrappers --> gpsmax/devices/garmin.py
+  - logging and timestamps → gpsmax/util/logging.py
+  - hashing utilities → gpsmax/util/hashing.py
+  - filesystem/path helpers → gpsmax/util/paths.py
+  - subprocess wrappers → gpsmax/util/subprocess.py
+  - mtp handling wrappers → gpsmax/devices/mtp.py
+  - garmin-specific wrappers → gpsmax/devices/garmin.py
 - Refactor existing scripts (`garmin_ingest.py`, `gps_import_manifest.py`) to import from
   `gpsmax.util` and `gpsmax.devices`
 - Maintain scripts as standalone entry points while sharing a common internal library

@@ -14,6 +14,10 @@ This project began using shell scripts, but quickly grew in size to the point wh
 - Normalize files by cleaning them up to make them human readable with meaningful filenames.
 - Use `fzf` to find and select files for processing.
 
+*See* [ROADMAP.md](ROADMAP.md) for a sense of history and direction.
+
+**CAVEAT:** *I am not a developer by trade. I am learning as I go, so please be kind. Many common best practices are missing, and the ones I've adopted I have found the hard way. This is very much a learning project for me, and I have used ChatGPT for some parts (most parts, initially, if I'm being honest). As my confidence and understanding grows, I will refactor code and hopefully even simplify some aspects.
+
 ## Requirements
 
 Tested on Linux (EndeavourOS, Ubuntu) on Python >= 3.12.
@@ -35,7 +39,7 @@ pip install -e .[dev]
 ## Configuration
 Configuration lives either in your local config folder (eg. `~/user/.config`) or in `gpxmax/config`. Configuration is loaded at runtime by using the `load_config` function.
 
-###Minimal example config:
+### Minimal example config:
 ```
 [paths]
 runtime_root = "~/GPS"
