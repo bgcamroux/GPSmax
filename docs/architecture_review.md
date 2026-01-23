@@ -1,4 +1,10 @@
-# GPSmax - Architecture Review and Migration Plan
+---
+title: GPSmax -- Architecture Review and Migration Plan
+author: Brad Camroux
+date: 22 January 2026
+header-includes:
+  - \usepackage{pmboxdraw}
+---
 
 ## Table of Contents
 
@@ -53,7 +59,7 @@
   - [Near-term next steps](#near-term-next-steps)
   - [Guiding principle going forward](#guiding-principle-going-forward)
 
-
+\pagebreak
 ## 1. Project Summary
 
 ### What `GPSmax` *is*
@@ -86,17 +92,21 @@ There are a great number of geographic tools out there that work with GPS data. 
 - a mapping tool,
 - `gpsprune`.
 
+---
+
 ### User workflow
 The typical user workflow might look something like this:
-1. **Ingest**: copy data to PC
-2. **Normalize**: clean up GPX files, normalize timestamps and file naming, and make them human-readable
-3. **Analyze**: compute basic summary information about a track
-4. **View**: show the selected track with a speed-based heatmap
-5. **Prune**: clean up point clusters while maintaining integrity for geotagging or other future work
-6. **Export**: save for future use
+
+  1. **Ingest**: copy data to PC
+  2. **Normalize**: clean up GPX files, normalize timestamps and file naming, and make them human-readable
+  3. **Analyze**: compute basic summary information about a track
+  4. **View**: show the selected track with a speed-based heatmap
+  5. **Prune**: clean up point clusters while maintaining integrity for geotagging or other future work
+  6. **Export**: save for future use
 
 The user is expected to make decisions at many points in the workflow. Normalization, pruning, and export are the primary decision points, where users must provide part of the normalized file name; identify sections of a track to be pruned; and make decisions on final export. Commands are designed to be repeatable and idempotent and may be re-run safely as the user refines their decisions.
 
+\pagebreak
 ## 2. Current inventory
 This section describes the *current state* of the project, including any persistent GPSmax artifacts and their on-disk organization, as implemented **today** (January 22, 2026).
 
@@ -158,17 +168,25 @@ Each user entry point has some form of output, and some of that output is persis
 
 ```
 GPS
-├── _db           # [Optional] track database and schema (may be located elsewhere if using Postgres)
-├── _raw          # GPX files copied directly from device, treated as immutable by system; manifests and hashes
-├── _work         # GPX files being normalized (may rename this from `_work` to `_norm`)
-├── index         # logging from `garmin_ingest.py` (may rename to `logs` or place under `_raw/`)
-├── maps          # [Optional] maps produced from tracks (this probably belongs to a different workflow)
+├── _db           # [Optional] track database and schema (may be  
+│                     located elsewhere if using Postgres)
+├── _raw          # GPX files copied directly from device, treated  
+│                     as immutable by system; manifests and hashes
+├── _work         # GPX files being normalized (may rename this from  
+│                     `_work` to `_norm`)
+├── index         # logging from `garmin_ingest.py` (may rename to  
+│                     `logs` or place under `_raw/`)
+├── maps          # [Optional] maps produced from tracks  
+│
 └── tracks        # finalized and curated GPX outputs ("derived" files)
 ```
 
 #### I. Ingestion
 Ingestion is the process of finding the GPS device, connecting to it, and copying data from it. GPX files copied directly from the GPS device are to be stored in `~/GPS/_raw`.
-- Data copied from the GPS device are currently saved in `~/GPS/_raw/<GPX_year>/<ingest_date>/<device_id>`. (This will change.)
+
+- Data copied from the GPS device are currently saved in    
+  `~/GPS/_raw/<GPX_year>/<ingest_date>/<device_id>`.  
+  (This will change.)
 - All GPX files under the `_raw` path are treated as immutible by the system.
 - Ingestion calculates a SHA-256 hash for each file copied and appends these to `checksums.sha256`.
 - An ingestion manifest is written, describing exactly what was imported and where it was saved. Manifests are always output in JSON format by default; optional CSV output is also supported.
@@ -176,6 +194,7 @@ Ingestion is the process of finding the GPS device, connecting to it, and copyin
 
 #### II. Normalization
 Normalization is the process of re-writing GPX files in a more human-friendly format than what comes raw from the device. We also clean up timestamps and provide a standardized, meaningful file name.
+
 - GPX files are read from the `_raw/` tree and written to the `_work/` tree.
 - Files from `_raw` are duplicated and re-written, *never* altered themselves.
 - Normalization manifests are produced and stored alongside the normalized files under the `_work/` tree. JSON format.
@@ -183,6 +202,7 @@ Normalization is the process of re-writing GPX files in a more human-friendly fo
 
 #### III. Manifest & import indexing
 If a SQLite (or other SQL) database is used, this process will read and insert data from the ingestion manifests.
+
 - The database file is presently located under the `~/GPS` directory. (This will be moved.)
 - Currently this process is invoked by the user. (This may change.)
 
@@ -190,11 +210,13 @@ If a SQLite (or other SQL) database is used, this process will read and insert d
 Analysis reads normalized GPX files and presently outputs only to `stdout`. There are currently no persistent artifacts for this process.
 
 
+\pagebreak
 ## 3. What works well
 Despite being in an exploratory and evolving state, the current GPSmax architecture demonstrates several strong qualities that provide a solid foundation for future refinement.
 
 ### Clear separation of data lifecycles
 The project already enforces a meaningful separation between:
+
 - raw data (`_raw/`), treated as immutable;
 - intermediate, mutable working data (`_work/`);
 - finalized, curated outputs (`tracks/`).
@@ -203,12 +225,14 @@ This separation directly supports reproducibility, reversibility, and auditabili
 
 ### Preservation of original data
 All GPX files copied from devices are preserved in their original form, with no in-place modification. This ensures that:
+
 - original device data can always be recovered;
 - downstream transformations are non-destructive; and
 - errors in later stages do not corrupt source data.
 
 ### Deterministic ingestion with verification
 The ingestion process:
+
 - computes cryptographic hashes (SHA-256) for imported files; and
 - records detailed ingestion manifests describing what was imported and where it was stored.
 
@@ -216,6 +240,7 @@ These practices provide a strong basis for integrity checking, deduplication, an
 
 ### Explicit, human-readable artifacts
 Ingestion and normalization both produce human-readable JSON manifests. Normalization also produces
+
 - human-readable GPX files with standardized timestamps and naming, and
 - sidecar JSON metadata describing transformations and user-supplied notes.
 
@@ -226,17 +251,20 @@ The system explicitly expects user decisions at key points (normalization, pruni
 
 ### Modular functional domains
 Functionality is already grouped into coherent domains (ingest, normalize, analyze, visualize, devices, formats), which:
+
 - makes the codebase easier to navigate; and
 - provides a natural basis for later architectural consolidation.
 
 ### Minimal mandatory infrastructure
 The core workflow does not require a database. Optional SQLite usage is clearly separated, preserving the ability to run the system using only the filesystem and standard tools.
 
+\pagebreak
 ## 4. Pain points and limitations
 As evidenced from the above, there are some parts of this project that are not working as nicely as would be desired. As a result of exploratory development, the current architecture exhibits several sources of growth resistance.
 
 ### I. Fragmented user entry points
 There are currently four separate Python script-like subpackages that are used as entry points for the user. Each entry point manages its own
+
 - configuration loading,
 - logging setup,
 - error handling and exit codes, and
@@ -246,6 +274,7 @@ Consistency across commands then relies on convention rather than enforcement. T
 
 ### II. Blurred boundaries: procedural vs data logic
 There is no clear separation of logic domains as different entry-point modules appear to combine
+
 - procedural logic / command orchestration (argument parsing, filesystem navigation, user interaction) and
 - data logic (data transformations, analysis, metadata handling).
 
@@ -253,6 +282,7 @@ This makes reuse and testing more difficult and obscures which parts of the syst
 
 ### III. Inconsistent or unstable on-disk conventions
 There is clear high-level separation between `_raw`, `_work`, and `tracks`, but some aspects are currently unstable:
+
 - directory naming and hierarchy under `_raw`,
 - placement of manifests and checksum files,
 - location of logs and index-like artifacts,
@@ -262,6 +292,7 @@ These inconsistencies complicate documentation, user expectations, and future au
 
 ### IV. Manifest and database ambiguity
 SQLite-related artifacts and import/indexing scripts indicates an evolving strategy for persistent indexing, but:
+
 - database usage is optional and loosely integrated,
 - responsibilities between filesystem manifests and database records are not clearly defined, and
 - the authoritative source of truth (filesystem or database?) is not explicitly defined.
@@ -270,6 +301,7 @@ These ambiguities may result in duplicated state or project divergence over time
 
 ### V. Limited visibility into workflow state
 Manifests and sidecar files provide detailed local context, but there is no unified view of
+
 - what has been ingested,
 - what has been normalized, or
 - which tracks are finalized versus in-process.
@@ -278,15 +310,18 @@ Data management may become more challenging as the dataset grows, requiring manu
 
 ### VI. Naming drift and conceptual overlap
 Terminology and nomenclature is evolving and expected, but it can
+
 - obscure intent for future contributors (including future self),
 - increase the cost of documentation and onboarding,
 - make it harder to define stable interfaces.
 
+\pagebreak
 ## 5. Key risks
 The architectural pain points identified above introduce several concrete risks to the long-term viability and usability of GPSmax.
 
 ### I. Maintainability risk
 The project faces an elevated risk of becoming difficult to maintain as it evolves. Fragmented entry points, blurred boundaries between orchestration and domain logic, and naming drift increase the likelihood that:
+
 - changes must be duplicated across multiple scripts;
 - small modifications require understanding large portions of the codebase;
 - refactoring efforts become risky due to unclear ownership of responsibilities.
@@ -295,6 +330,7 @@ Over time, this may significantly slow development and increase the chance of re
 
 ### II. Data integrity risk
 While raw GPX data are preserved immutably, higher-level data integrity is at risk due to:
+
 - inconsistent or unstable on-disk conventions;
 - ambiguity between filesystem manifests and database records; and
 - lack of a clearly defined authoritative source of truth.
@@ -303,6 +339,7 @@ These conditions increase the likelihood of silent divergence between representa
 
 ### III. User interface and experience risk
 The absence of a consolidated command-line interface introduces a risk of inconsistent user experience. With multiple script-style entry points:
+
 - command syntax, options, and defaults may diverge;
 - logging and error reporting may vary across commands; and
 - user expectations may not transfer cleanly from one workflow stage to another.
@@ -311,13 +348,14 @@ This inconsistency increases cognitive load and raises the barrier to effective 
 
 ### IV. Architectural scalability risk
 As the project grows in scope and data volume, its architecture risks becoming harder to extend safely. Naming drift, unstable conventions, and blurred logic boundaries obscure intent and make it increasingly difficult to:
+
 - identify the correct location for new functionality;
 - reason about the impact of changes; and
 - evolve the system without unintended side effects.
 
 This threatens the project’s ability to scale in complexity, not just size.
 
-
+\pagebreak
 ## 6. Target architecture
 This section describes the intended architectural shape of the system at a high level. The goal is not to be prescriptive, but to outline structural decisions that will eliminate or mitigate the risks identified above.
 
@@ -328,6 +366,7 @@ This structure ensures consistent loading of configurations, logging behaviour, 
 
 ### II. Explicit separation of responsibilities
 There is to be clear delineation between
+
 - command orchestration and user interaction (procedural logic),
 - core domain logic and data transformations (data logic), and
 - input/output adapters (filesystem, databases, external tools).
@@ -336,6 +375,7 @@ Each layer will have a well-defined responsibility, minimizing coupling and impr
 
 ### III. Stable, well-defined data boundaries
 Persistent artifacts are to be organized according to a small number of clearly-defined lifecycle stages. Each stage will have:
+
 - a defined purpose,
 - well-documented invariants, and
 - explicit rules governing mutability and regeneration.
@@ -349,6 +389,7 @@ This reduces the risk of silent divergence while simplifying recovery and valida
 
 ### V. Incremental extensibility
 This architecture will support the addition of new functionality by extending existing interfaces as opposed to introducing parallel mechanisms. New features will be integrated by:
+
 - adding new subcommands,
 - introducing new adapters, or
 - extending domain models.
@@ -357,12 +398,14 @@ In this way the system is allowed to evolve without destabilizing existing workf
 
 ### VI. Constraints and non-goals
 The target architecture explicitly avoids introducing:
+
 - mandatory external services,
 - tightly coupled UI layers, or
 - irreversible transformations of source data.
 
 These constraints preserve the system's original design intent while enabling controlled growth.
 
+\pagebreak
 ## 7. Migration plan
 This plan is to incrementally migrate from the current architecture (Section 2) to the target architecture (Section 6). Each step should be independently shippable, verifiable, and reversible, with a bias toward protecting raw data and preserving existing workflows.
 
@@ -372,6 +415,7 @@ This plan is to incrementally migrate from the current architecture (Section 2) 
 - No new features are to be added during migration unless required to preserve behaviour or data integrity.
 - Derived artifacts and indexes must remain regenerable from authoritative sources.
 
+---
 
 ### Milestone 1: Establish unified interface without changing behaviour
 **Goal:** Introduce a single user-facing command interface while keeping underlying functionality and artifact production unchanged.
@@ -394,6 +438,8 @@ This plan is to incrementally migrate from the current architecture (Section 2) 
   - Calling legacy modules still works.
   - Behaviour matches unified CLI invocation.
 - **Rollback:** Restore legacy modules to directly execute their prior behaviour.
+
+---
 
 ### Milestone 2: Stabilize cross-cutting concerns
 **Goal:** Eliminate duplication and divergence of startup concerns while keeping command behaviour stable.
@@ -418,6 +464,8 @@ This plan is to incrementally migrate from the current architecture (Section 2) 
   - All commands agree on the same resolved paths for `_raw`, `_work`, `tracks`, etc.
   - Path-related errors are consistently  reported.
 - **Rollback:** Revert to prior per-command path resolution.
+
+---
 
 ### Milestone 3: Make data boundaries explicit and stable
 **Goal:** Stabilize artifact lifecycle rules and make them enforceable without breaking existing data.
@@ -444,6 +492,8 @@ This plan is to incrementally migrate from the current architecture (Section 2) 
   - Validation failures are surfaced consistently with clear exit codes.
 - **Rollback:** Keep checksum generation but remove validation enforcement.
 
+---
+
 ### Milestone 4: Clarify authoritative sources of truth (filesystem vs. database)
 **Goal:** Remove ambiguity about what is authoritative and ensure secondary stores are regenerable.
 
@@ -461,6 +511,8 @@ This plan is to incrementally migrate from the current architecture (Section 2) 
   - Rebuild produces equivalent results from the same authoritative inputs.
 - **Rollback:** Keep existing DB behaviour but mark it as experimental/non-authoritative.
 
+---
+
 ### Milestone 5: Enforce separation of responsibilities (layers)
 **Goal:** Ensure procedural orchestration, domain logic, and adapters are cleanly separated without changing user-visible behaviour.
 
@@ -477,6 +529,8 @@ This plan is to incrementally migrate from the current architecture (Section 2) 
   - Domain logic does not import device-specific or database-specific modules directly.
   - Swapping adapters is structurally possible without rewriting domain logic.
 - **Rollback:** Keep adapters in place but document coupling for future work.
+
+---
 
 ### Milestone 6: Deprecate legacy entry points and reduce surface area
 **Goal:** Consolidate to the unified entry point as the primary supported interface.
@@ -502,6 +556,8 @@ After this deprecation window, legacy entry points may be removed or disabled, p
 - all documented workflows are supported by the unified CLI, and
 - no data integrity or reproducibility guarantees are weakened.
 
+---
+
 ### Validation strategy: Applies across milestones
 - **Unit tests:** focus on domain functions (normalization transforms, checksum logic, manifest read/write).
 - **Integration tests:** run ingest -> normalize -> analyze on test fixtures; verify artifact creation and invariants.
@@ -512,12 +568,13 @@ After this deprecation window, legacy entry points may be removed or disabled, p
 - Prefer shipping migrations as small releases with clear release notes.
 - Keep any on-disk layout transitions explicitly versioned and supported for a defined period (read old, write new), then retire legacy paths.
 
-
+\pagebreak
 ## 8. Conclusion and next steps
 
 This document captures the current state, strengths, limitations, risks, and intended architectural direction of GPSmax as of January 2026. It reflects a transition from exploratory development toward a more deliberate and sustainable structure, without discarding the working foundations already in place.
 
 The immediate value of this review is clarity:
+
 - the current architecture is well understood and documented;
 - existing strengths are explicitly preserved;
 - architectural risks are identified and scoped; and
@@ -533,6 +590,7 @@ The following actions are recommended as the next phase of work, in order:
 
 ### Guiding principle going forward
 Architectural changes should be justified by:
+
 - documented pain points,
 - clearly articulated risks, and
 - alignment with the target architecture defined in Section 6.
